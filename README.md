@@ -1,4 +1,4 @@
-**SyncDoc** is a full-stack collaborative document editing platform that enables multiple users to create, edit, and manage documents together in real time.
+**SyncDoc** is a collaborative document editing platform that enables multiple users to create, edit, and manage documents together in real time.
 
 Built using the **MERN stack (MongoDB, Express.js, React.js, and Node.js)**, the application uses **Socket.IO** for real-time communication, allowing users to collaborate on shared documents, exchange messages, and see document updates instantly.
 
@@ -19,3 +19,5 @@ Built using the **MERN stack (MongoDB, Express.js, React.js, and Node.js)**, the
 - **Real-Time Communication:** Socket.IO
 - **Authentication:** JWT, bcrypt
 - **AI Integration:** Google Gemini API
+
+**Project URL:** https://syncdoc.netlify.app/login
