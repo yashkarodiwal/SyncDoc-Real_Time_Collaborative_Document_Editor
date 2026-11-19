@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from "react";
+
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { socket } from "../services/socket";
 
@@ -17,10 +18,10 @@ interface Props {
 }
 
 export default function Chat({ documentId }: Props) {
-
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [file, setFile] = useState<File | null>(null);
+    const [sending, setSending] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,6 +29,7 @@ export default function Chat({ documentId }: Props) {
     const token = localStorage.getItem("token");
     const user = localStorage.getItem("name") || "User";
 
+    // Scroll to the latest message
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({
             behavior: "smooth"
@@ -38,13 +40,12 @@ export default function Chat({ documentId }: Props) {
         scrollToBottom();
     }, [messages]);
 
-
+    // Load chat history
     useEffect(() => {
+        let cancelled = false;
 
         const loadMessages = async () => {
-
             try {
-
                 const res = await axios.get(
                     `https://syncdoc.onrender.com/api/chat/${documentId}`,
                     {
@@ -54,47 +55,53 @@ export default function Chat({ documentId }: Props) {
                     }
                 );
 
-                setMessages(res.data);
-
+                if (!cancelled) {
+                    setMessages(res.data);
+                }
             } catch (error) {
-
-                console.error("Failed to load chat history");
-
+                console.error("Failed to load chat history", error);
             }
-
         };
 
+        setMessages([]);
         loadMessages();
 
-    }, [documentId]);
-
-    useEffect(() => {
-
-        socket.on("receive-message", (data) => {
-
-            setMessages((prev) => [...prev, data]);
-
-        });
-
         return () => {
-            socket.off("receive-message");
+            cancelled = true;
+        };
+    }, [documentId, token]);
+
+    // Receive real-time messages
+    useEffect(() => {
+        const handleReceiveMessage = (data: Message) => {
+            setMessages((prev) => [...prev, data]);
         };
 
+        socket.on("receive-message", handleReceiveMessage);
+
+        return () => {
+            socket.off("receive-message", handleReceiveMessage);
+        };
     }, []);
 
+    // Send message
     const sendMessage = async () => {
-
-        if (!input.trim() && !file) return;
+        if ((!input.trim() && !file) || sending) return;
 
         try {
+            setSending(true);
 
             const formData = new FormData();
 
             formData.append("documentId", documentId);
 
-            if (input) formData.append("message", input);
+            if (input.trim()) {
+                formData.append("message", input.trim());
+            }
 
-            if (file) formData.append("file", file);
+            if (file) {
+                formData.append("file", file);
+            }
 
             const res = await axios.post(
                 "https://syncdoc.onrender.com/api/chat",
@@ -116,75 +123,168 @@ export default function Chat({ documentId }: Props) {
             setInput("");
             setFile(null);
 
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+
         } catch (error) {
-
-            console.error("Failed to send message");
-
+            console.error("Failed to send message", error);
+        } finally {
+            setSending(false);
         }
+    };
 
+    // Handle Enter key
+    const handleKeyDown = (
+        e: React.KeyboardEvent<HTMLInputElement>
+    ) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
     };
 
     return (
+        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
 
-        <div className="flex flex-col h-full border-l bg-white">
+            {/* Messages Area */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto p-4">
 
-            <div className="p-4 font-bold border-b">
-                Chat
-            </div>
+                {messages.length === 0 ? (
+                    <div className="flex flex-1 flex-col items-center justify-center text-center">
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-
-                {messages.map((msg, index) => (
-
-                    <div key={index}>
-
-                        <div className="font-semibold text-blue-600">
-                            {msg.sender?.name}
+                        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-2xl">
+                            💬
                         </div>
 
-                        {msg.message && (
-                            <div className="text-gray-800">
-                                {msg.message}
-                            </div>
-                        )}
+                        <h3 className="text-sm font-semibold text-slate-700">
+                            No messages yet
+                        </h3>
 
-                        {msg.fileUrl && (
-                            <a
-                                href={msg.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-500 underline"
-                            >
-                                View File
-                            </a>
-                        )}
+                        <p className="mt-1 max-w-[200px] text-xs leading-relaxed text-slate-400">
+                            Start a conversation with your collaborators.
+                        </p>
 
                     </div>
+                ) : (
+                    messages.map((msg, index) => {
+                        const senderName = msg.sender?.name || "User";
+                        const isOwnMessage = senderName === user;
 
-                ))}
+                        return (
+                            <div
+                                key={msg._id || index}
+                                className={`flex min-w-0 flex-col ${isOwnMessage
+                                        ? "items-end"
+                                        : "items-start"
+                                    }`}
+                            >
 
-                <div ref={messagesEndRef}></div>
+                                {/* Sender */}
+                                <div className="mb-1 flex items-center gap-2">
+                                    {!isOwnMessage && (
+                                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
+                                            {senderName.charAt(0).toUpperCase()}
+                                        </span>
+                                    )}
+
+                                    <span className="text-xs font-semibold text-slate-600">
+                                        {isOwnMessage ? "You" : senderName}
+                                    </span>
+                                </div>
+
+                                {/* Message Bubble */}
+                                <div
+                                    className={`max-w-[95%] min-w-0 break-words rounded-2xl px-3 py-2 text-sm leading-relaxed ${isOwnMessage
+                                            ? "rounded-tr-sm bg-blue-600 text-white"
+                                            : "rounded-tl-sm bg-slate-100 text-slate-700"
+                                        }`}
+                                >
+                                    {msg.message && (
+                                        <p className="whitespace-pre-wrap break-words">
+                                            {msg.message}
+                                        </p>
+                                    )}
+
+                                    {msg.fileUrl && (
+                                        <a
+                                            href={msg.fileUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={`mt-2 block break-all text-xs underline ${isOwnMessage
+                                                    ? "text-blue-100"
+                                                    : "text-blue-600"
+                                                }`}
+                                        >
+                                            📎 View attachment
+                                        </a>
+                                    )}
+                                </div>
+
+                                {msg.timestamp && (
+                                    <span className="mt-1 text-[10px] text-slate-400">
+                                        {new Date(msg.timestamp).toLocaleTimeString(
+                                            "en-IN",
+                                            {
+                                                hour: "2-digit",
+                                                minute: "2-digit"
+                                            }
+                                        )}
+                                    </span>
+                                )}
+
+                            </div>
+                        );
+                    })
+                )}
+
+                <div ref={messagesEndRef} />
 
             </div>
 
-            <div className="p-3 border-t flex items-center gap-2">
+            {/* Selected File */}
+            {file && (
+                <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-100 bg-blue-50 px-3 py-2">
 
+                    <span className="min-w-0 truncate text-xs text-blue-700">
+                        📎 {file.name}
+                    </span>
+
+                    <button
+                        onClick={() => {
+                            setFile(null);
+
+                            if (fileInputRef.current) {
+                                fileInputRef.current.value = "";
+                            }
+                        }}
+                        className="shrink-0 text-xs font-semibold text-red-500 hover:text-red-700"
+                    >
+                        Remove
+                    </button>
+
+                </div>
+            )}
+
+            {/* Message Composer */}
+            <div className="flex w-full min-w-0 shrink-0 items-center gap-2 border-t border-slate-200 bg-white p-3">
+
+                {/* Message Input */}
                 <input
                     type="text"
-                    placeholder="Type message..."
-                    className="flex-1 border rounded p-2"
+                    placeholder="Type a message..."
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                            sendMessage();
-                        }
-                    }}
+                    onKeyDown={handleKeyDown}
+                    className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
                 />
 
+                {/* Attachment Button */}
                 <button
+                    type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-2 border rounded"
+                    title="Attach file"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-lg text-slate-500 transition hover:bg-blue-50 hover:text-blue-600"
                 >
                     📎
                 </button>
@@ -194,23 +294,24 @@ export default function Chat({ documentId }: Props) {
                     ref={fileInputRef}
                     hidden
                     onChange={(e) => {
-                        if (e.target.files) {
+                        if (e.target.files?.[0]) {
                             setFile(e.target.files[0]);
                         }
                     }}
                 />
 
+                {/* Send Button */}
                 <button
+                    type="button"
                     onClick={sendMessage}
-                    className="bg-blue-600 text-white px-4 py-2 rounded"
+                    disabled={sending || (!input.trim() && !file)}
+                    className="flex h-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                    Send
+                    {sending ? "..." : "Send"}
                 </button>
 
             </div>
 
         </div>
-
     );
-
 }
