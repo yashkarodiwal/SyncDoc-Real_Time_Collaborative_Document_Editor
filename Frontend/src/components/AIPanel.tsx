@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import axios from "axios";
 
@@ -6,22 +7,21 @@ interface Props {
 }
 
 export default function AIPanel({ content }: Props) {
-
     const [result, setResult] = useState("");
     const [loading, setLoading] = useState(false);
+    const [activeAction, setActiveAction] = useState("");
 
     const token = localStorage.getItem("token");
 
     const callAI = async (endpoint: string) => {
-
         if (!content || content.trim() === "") {
-            setResult("Document is empty.");
+            setResult("Your document is empty. Add some content before using AI tools.");
             return;
         }
 
         try {
-
             setLoading(true);
+            setActiveAction(endpoint);
             setResult("");
 
             const res = await axios.post(
@@ -34,67 +34,134 @@ export default function AIPanel({ content }: Props) {
                 }
             );
 
-            setResult(res.data.result);
+            setResult(res.data.result || "No response received from AI.");
 
         } catch (error) {
-
             console.error("AI request failed:", error);
-            setResult("AI request failed.");
+            setResult("Unable to generate a response. Please try again.");
 
         } finally {
-
             setLoading(false);
-
+            setActiveAction("");
         }
-
     };
 
     return (
+        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
 
-        <div className="flex flex-col h-full border-l bg-white">
+            {/* AI Actions */}
+            <div className="shrink-0 space-y-3 border-b border-slate-100 p-4">
 
-            {/* Header */}
-            <div className="p-4 font-bold border-b">
-                AI Assistant
-            </div>
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Writing tools
+                    </p>
 
-            {/* Buttons */}
-            <div className="p-4 space-y-3">
+                    <p className="mt-1 text-xs text-slate-500">
+                        Improve your document with AI assistance.
+                    </p>
+                </div>
 
+                {/* Summarize */}
                 <button
                     onClick={() => callAI("summarize")}
-                    className="bg-blue-600 text-white px-3 py-2 rounded w-full"
+                    disabled={loading}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                    Summarize
+                    <span>✦</span>
+                    {activeAction === "summarize"
+                        ? "Summarizing..."
+                        : "Summarize"}
                 </button>
 
+                {/* Fix Grammar */}
                 <button
                     onClick={() => callAI("grammar")}
-                    className="bg-green-600 text-white px-3 py-2 rounded w-full"
+                    disabled={loading}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                    Fix Grammar
+                    <span>✓</span>
+                    {activeAction === "grammar"
+                        ? "Fixing grammar..."
+                        : "Fix Grammar"}
                 </button>
 
+                {/* Rewrite */}
                 <button
                     onClick={() => callAI("rewrite")}
-                    className="bg-purple-600 text-white px-3 py-2 rounded w-full"
+                    disabled={loading}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                    Rewrite
+                    <span>✎</span>
+                    {activeAction === "rewrite"
+                        ? "Rewriting..."
+                        : "Rewrite"}
                 </button>
 
             </div>
 
-            {/* Result Panel */}
-            <div className="flex-1 overflow-y-auto p-4 border-t text-sm whitespace-pre-wrap">
+            {/* AI Response */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
 
-                {loading
-                    ? "AI is generating response..."
-                    : result || "AI response will appear here."}
+                <div className="shrink-0 border-b border-slate-100 px-4 py-3">
+                    <h3 className="text-sm font-semibold text-slate-800">
+                        AI Response
+                    </h3>
+
+                    <p className="mt-1 text-xs text-slate-400">
+                        Your generated content will appear here.
+                    </p>
+                </div>
+
+                <div
+                    className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
+                    aria-live="polite"
+                >
+
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+
+                            <div className="h-7 w-7 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+
+                            <p className="text-sm font-medium text-slate-600">
+                                AI is generating your response...
+                            </p>
+
+                            <p className="text-xs text-slate-400">
+                                Please wait a moment.
+                            </p>
+
+                        </div>
+                    ) : result ? (
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+
+                            <p className="whitespace-pre-wrap break-words text-sm leading-7 text-slate-700">
+                                {result}
+                            </p>
+
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-10 text-center">
+
+                            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-2xl">
+                                ✨
+                            </div>
+
+                            <h4 className="text-sm font-semibold text-slate-700">
+                                Your AI assistant
+                            </h4>
+
+                            <p className="mt-2 max-w-[220px] text-xs leading-relaxed text-slate-400">
+                                Choose Summarize, Fix Grammar, or Rewrite to get help with your document.
+                            </p>
+
+                        </div>
+                    )}
+
+                </div>
 
             </div>
 
         </div>
-
     );
-
 }
