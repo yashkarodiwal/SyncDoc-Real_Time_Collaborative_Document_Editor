@@ -1,3 +1,4 @@
+
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const generateToken = require("../utils/generateToken");
@@ -8,20 +9,32 @@ exports.registerUser = async (req, res) => {
         const { name, email, password } = req.body;
 
         if (!name || !email || !password) {
-            return res.status(400).json({ message: "All fields required" });
+            return res.status(400).json({
+                message: "All fields required"
+            });
         }
 
-        const existingUser = await User.findOne({ email });
+        // Normalize email
+        const normalizedEmail = email.trim().toLowerCase();
+
+        // Check whether user already exists
+        const existingUser = await User.findOne({
+            email: normalizedEmail
+        });
 
         if (existingUser) {
-            return res.status(400).json({ message: "User already exists" });
+            return res.status(400).json({
+                message: "User already exists"
+            });
         }
 
+        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // Create new user
         const user = await User.create({
-            name,
-            email,
+            name: name.trim(),
+            email: normalizedEmail,
             password: hashedPassword
         });
 
@@ -33,7 +46,17 @@ exports.registerUser = async (req, res) => {
         });
 
     } catch (error) {
-        res.status(500).json({ message: error.message });
+
+        // Handle duplicate email index error
+        if (error.code === 11000) {
+            return res.status(409).json({
+                message: "User already exists"
+            });
+        }
+
+        res.status(500).json({
+            message: error.message
+        });
     }
 };
 
@@ -41,21 +64,41 @@ exports.registerUser = async (req, res) => {
 // LOGIN USER
 exports.loginUser = async (req, res) => {
     try {
-
         const { email, password } = req.body;
 
-        const user = await User.findOne({ email });
+        if (!email || !password) {
+            return res.status(400).json({
+                message: "Email and password are required"
+            });
+        }
+
+        // Normalize email
+        const normalizedEmail = email.trim().toLowerCase();
+
+        // Find user
+        const user = await User.findOne({
+            email: normalizedEmail
+        });
 
         if (!user) {
-            return res.status(401).json({ message: "Invalid credentials" });
+            return res.status(401).json({
+                message: "Invalid credentials"
+            });
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        // Compare password
+        const isMatch = await bcrypt.compare(
+            password,
+            user.password
+        );
 
         if (!isMatch) {
-            return res.status(401).json({ message: "Invalid credentials" });
+            return res.status(401).json({
+                message: "Invalid credentials"
+            });
         }
 
+        // Generate JWT
         res.json({
             _id: user._id,
             name: user.name,
@@ -64,6 +107,8 @@ exports.loginUser = async (req, res) => {
         });
 
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({
+            message: error.message
+        });
     }
 };
