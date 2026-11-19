@@ -1,3 +1,81 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+/* SyncDoc Quill Editor */
+
+.syncdoc-quill {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    background: white;
+}
+
+/* Toolbar */
+.syncdoc-quill .ql-toolbar.ql-snow {
+    flex-shrink: 0;
+    border: none;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+    padding: 12px;
+}
+
+.syncdoc-quill .ql-toolbar button {
+    border-radius: 6px;
+    transition: background 0.2s ease;
+}
+
+.syncdoc-quill .ql-toolbar button:hover {
+    background: #e0edff;
+}
+
+.syncdoc-quill .ql-toolbar button.ql-active {
+    background: #dbeafe;
+}
+
+/* Editor Container */
+.syncdoc-quill .ql-container.ql-snow {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    border: none;
+    font-family: Arial, sans-serif;
+    font-size: 15px;
+}
+
+/* Writing Area */
+.syncdoc-quill .ql-editor {
+    min-height: 100%;
+    padding: 28px 32px;
+    color: #334155;
+    line-height: 1.8;
+}
+
+/* Placeholder */
+.syncdoc-quill .ql-editor.ql-blank::before {
+    color: #94a3b8;
+    font-style: normal;
+    left: 32px;
+}
+
+/* Headings */
+.syncdoc-quill .ql-editor h1,
+.syncdoc-quill .ql-editor h2,
+.syncdoc-quill .ql-editor h3 {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+/* Links */
+.syncdoc-quill .ql-editor a {
+    color: #2563eb;
+}
+
+/* Blockquotes */
+.syncdoc-quill .ql-editor blockquote {
+    border-left: 4px solid #3b82f6;
+    color: #64748b;
+    padding-left: 16px;
+}
