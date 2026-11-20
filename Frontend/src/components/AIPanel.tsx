@@ -1,5 +1,8 @@
+
 import { useState } from "react";
 import axios from "axios";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 
 interface Props {
     content: string;
@@ -51,6 +54,11 @@ export default function AIPanel({ content }: Props) {
             setActiveAction("");
         }
     };
+
+    // Convert AI HTML/Markdown response into safe HTML
+    const formattedResult = DOMPurify.sanitize(
+        marked.parse(result) as string
+    );
 
     return (
         <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
@@ -157,13 +165,12 @@ export default function AIPanel({ content }: Props) {
 
                         </div>
                     ) : result ? (
-                        <div className="w-full min-w-0 rounded-xl border border-slate-100 bg-slate-50 p-3 sm:p-4">
-
-                            <p className="whitespace-pre-wrap break-words text-sm leading-7 text-slate-700 [overflow-wrap:anywhere]">
-                                {result}
-                            </p>
-
-                        </div>
+                        <div
+                            className="ai-response w-full min-w-0 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm leading-7 text-slate-700 sm:p-4"
+                            dangerouslySetInnerHTML={{
+                                __html: formattedResult
+                            }}
+                        />
                     ) : (
                         <div className="flex flex-col items-center justify-center px-2 py-10 text-center">
 
