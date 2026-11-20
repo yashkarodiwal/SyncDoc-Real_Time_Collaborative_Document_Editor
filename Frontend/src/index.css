@@ -161,3 +161,40 @@
         padding: 12px;
     }
 }
+
+.ai-response p {
+    margin-bottom: 12px;
+    overflow-wrap: anywhere;
+}
+
+.ai-response p:last-child {
+    margin-bottom: 0;
+}
+
+.ai-response strong {
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.ai-response h1,
+.ai-response h2,
+.ai-response h3 {
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 16px;
+    margin-bottom: 8px;
+}
+
+.ai-response ul,
+.ai-response ol {
+    padding-left: 24px;
+    margin-bottom: 12px;
+}
+
+.ai-response ul {
+    list-style-type: disc;
+}
+
+.ai-response ol {
+    list-style-type: decimal;
+}
