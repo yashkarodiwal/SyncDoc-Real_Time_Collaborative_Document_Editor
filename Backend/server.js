@@ -12,6 +12,7 @@ const connectDB = require("./config/db");
 
 // MODELS
 const User = require("./models/User");
+const Document = require("./models/Document");
 const Permission = require("./models/Permission");
 
 // ROUTES
@@ -41,7 +42,6 @@ app.get("/", (req, res) => {
     res.send("SyncDoc API running...");
 });
 
-
 // SOCKET.IO
 const io = new Server(server, {
     cors: {
@@ -50,9 +50,56 @@ const io = new Server(server, {
     }
 });
 
-// Store active users by document and socket ID
+// Store active users by document ID and socket ID
 const activeUsers = {};
 
+// Get the user's role for a document.
+// The document owner does not need a separate Permission record.
+const getDocumentRole = async (documentId, userId) => {
+    const document = await Document.findById(documentId).select("owner");
+
+    if (!document) {
+        return null;
+    }
+
+    if (document.owner.toString() === userId) {
+        return "owner";
+    }
+
+    const permission = await Permission.findOne({
+        document: documentId,
+        user: userId
+    });
+
+    return permission ? permission.role : null;
+};
+
+// Remove a socket from a document room and update collaborators
+const removeUserFromDocument = (socket, documentId) => {
+    if (!documentId) return;
+
+    socket.leave(documentId);
+
+    if (activeUsers[documentId]) {
+        delete activeUsers[documentId][socket.id];
+
+        const remainingUsers = Object.values(
+            activeUsers[documentId]
+        );
+
+        io.to(documentId).emit(
+            "active-users",
+            remainingUsers
+        );
+
+        if (Object.keys(activeUsers[documentId]).length === 0) {
+            delete activeUsers[documentId];
+        }
+    }
+
+    socket.data.currentDocument = null;
+    socket.data.documentRole = null;
+};
 
 // AUTHENTICATE SOCKET CONNECTION
 io.use(async (socket, next) => {
@@ -74,17 +121,20 @@ io.use(async (socket, next) => {
             return next(new Error("User not found"));
         }
 
-        // Store verified user on socket
+        // Store authenticated user on socket
         socket.data.user = user;
 
         next();
 
     } catch (error) {
-        console.error("Socket authentication failed:", error.message);
+        console.error(
+            "Socket authentication failed:",
+            error.message
+        );
+
         next(new Error("Invalid authentication token"));
     }
 });
-
 
 // SOCKET CONNECTION
 io.on("connection", (socket) => {
@@ -94,17 +144,18 @@ io.on("connection", (socket) => {
     const userId = currentUser._id.toString();
 
     const userName =
-        currentUser.name ||
-        currentUser.email ||
-        "User";
+        typeof currentUser.name === "string" &&
+            currentUser.name.trim()
+            ? currentUser.name.trim()
+            : currentUser.email || "User";
 
     console.log("Authenticated user connected:", userName);
 
-
     // JOIN DOCUMENT
-    socket.on("join-document", async ({ documentId }, callback) => {
-
+    socket.on("join-document", async (data, callback) => {
         try {
+            const documentId = data?.documentId;
+
             if (!documentId) {
                 if (typeof callback === "function") {
                     callback({
@@ -112,72 +163,73 @@ io.on("connection", (socket) => {
                         message: "Document ID required"
                     });
                 }
+
                 return;
             }
 
-            // Check user's document permission
-            const permission = await Permission.findOne({
-                document: documentId,
-                user: userId
-            });
+            // Check document ownership or shared permission
+            const role = await getDocumentRole(
+                documentId,
+                userId
+            );
 
-            if (!permission) {
+            if (!role) {
                 if (typeof callback === "function") {
                     callback({
                         success: false,
                         message: "Access denied"
                     });
                 }
+
+                console.log(
+                    `${userName} was denied access to ${documentId}`
+                );
+
                 return;
             }
 
-            // Leave previous document room
+            // Leave previous document if switching documents
             const previousDocument = socket.data.currentDocument;
 
-            if (previousDocument) {
-                socket.leave(previousDocument);
-
-                if (activeUsers[previousDocument]) {
-                    delete activeUsers[previousDocument][socket.id];
-
-                    io.to(previousDocument).emit(
-                        "active-users",
-                        Object.values(activeUsers[previousDocument])
-                    );
-
-                    if (
-                        Object.keys(activeUsers[previousDocument]).length === 0
-                    ) {
-                        delete activeUsers[previousDocument];
-                    }
-                }
+            if (previousDocument && previousDocument !== documentId) {
+                removeUserFromDocument(socket, previousDocument);
             }
 
             // Join authorized document room
-            socket.join(documentId);
+            await socket.join(documentId);
 
             socket.data.currentDocument = documentId;
-            socket.data.documentRole = permission.role;
+            socket.data.documentRole = role;
 
+            // Initialize active users for this document
             if (!activeUsers[documentId]) {
                 activeUsers[documentId] = {};
             }
 
+            // Add authenticated user
             activeUsers[documentId][socket.id] = userName;
 
+            // Get active users
+            const currentActiveUsers = Object.values(
+                activeUsers[documentId]
+            );
+
+            // Broadcast updated collaborator list
             io.to(documentId).emit(
                 "active-users",
-                Object.values(activeUsers[documentId])
+                currentActiveUsers
             );
 
             console.log(
-                `${userName} joined ${documentId} as ${permission.role}`
+                `${userName} joined ${documentId} as ${role}`
             );
 
+            // Confirm successful join
             if (typeof callback === "function") {
                 callback({
                     success: true,
-                    role: permission.role
+                    role,
+                    activeUsers: currentActiveUsers
                 });
             }
 
@@ -193,9 +245,9 @@ io.on("connection", (socket) => {
         }
     });
 
-
     // LEAVE DOCUMENT
-    socket.on("leave-document", ({ documentId }) => {
+    socket.on("leave-document", (data) => {
+        const documentId = data?.documentId;
 
         if (
             !documentId ||
@@ -204,49 +256,34 @@ io.on("connection", (socket) => {
             return;
         }
 
-        socket.leave(documentId);
+        removeUserFromDocument(socket, documentId);
 
-        socket.data.currentDocument = null;
-        socket.data.documentRole = null;
-
-        if (activeUsers[documentId]) {
-            delete activeUsers[documentId][socket.id];
-
-            io.to(documentId).emit(
-                "active-users",
-                Object.values(activeUsers[documentId])
-            );
-
-            if (Object.keys(activeUsers[documentId]).length === 0) {
-                delete activeUsers[documentId];
-            }
-        }
-
-        console.log(`${userName} left document ${documentId}`);
+        console.log(
+            `${userName} left document ${documentId}`
+        );
     });
 
-
     // REAL-TIME DOCUMENT EDIT
-    socket.on("send-changes", async ({ documentId, delta }) => {
-
+    socket.on("send-changes", async (data) => {
         try {
+            const { documentId, delta } = data || {};
+
             // Ensure socket belongs to this document
-            if (socket.data.currentDocument !== documentId) {
+            if (
+                !documentId ||
+                socket.data.currentDocument !== documentId
+            ) {
                 return;
             }
 
-            // Verify current permission from database
-            const permission = await Permission.findOne({
-                document: documentId,
-                user: userId
-            });
+            // Recheck ownership or permission
+            const role = await getDocumentRole(
+                documentId,
+                userId
+            );
 
-            // Reject users without edit permission
-            if (
-                !permission ||
-                !["owner", "editor"].includes(permission.role)
-            ) {
-
+            // Only owners and editors can edit
+            if (!["owner", "editor"].includes(role)) {
                 socket.emit("permission-denied", {
                     message: "You do not have permission to edit this document"
                 });
@@ -254,7 +291,9 @@ io.on("connection", (socket) => {
                 return;
             }
 
-            // Broadcast only to other authorized room members
+            socket.data.documentRole = role;
+
+            // Broadcast changes to other document members
             socket.to(documentId).emit(
                 "receive-changes",
                 delta
@@ -265,47 +304,50 @@ io.on("connection", (socket) => {
         }
     });
 
-
     // CHAT
-    socket.on(
-        "send-message",
-        async ({ documentId, message, fileUrl }) => {
+    socket.on("send-message", async (data) => {
+        try {
+            const { documentId, message, fileUrl } = data || {};
 
-            try {
-                if (socket.data.currentDocument !== documentId) {
-                    return;
-                }
-
-                // Verify document access
-                const permission = await Permission.findOne({
-                    document: documentId,
-                    user: userId
-                });
-
-                if (!permission) {
-                    return;
-                }
-
-                io.to(documentId).emit("receive-message", {
-                    message,
-                    fileUrl,
-                    sender: {
-                        name: userName
-                    },
-                    timestamp: new Date()
-                });
-
-            } catch (error) {
-                console.error("Chat error:", error);
+            if (
+                !documentId ||
+                socket.data.currentDocument !== documentId
+            ) {
+                return;
             }
-        }
-    );
 
+            // Verify document access
+            const role = await getDocumentRole(
+                documentId,
+                userId
+            );
+
+            if (!role) {
+                return;
+            }
+
+            io.to(documentId).emit("receive-message", {
+                message,
+                fileUrl,
+                sender: {
+                    name: userName
+                },
+                timestamp: new Date()
+            });
+
+        } catch (error) {
+            console.error("Chat error:", error);
+        }
+    });
 
     // CURSOR MOVEMENT
-    socket.on("cursor-move", ({ documentId, index }) => {
+    socket.on("cursor-move", (data) => {
+        const { documentId, index } = data || {};
 
-        if (socket.data.currentDocument !== documentId) {
+        if (
+            !documentId ||
+            socket.data.currentDocument !== documentId
+        ) {
             return;
         }
 
@@ -315,31 +357,18 @@ io.on("connection", (socket) => {
         });
     });
 
-
     // DISCONNECT
     socket.on("disconnect", () => {
-
         const documentId = socket.data.currentDocument;
 
-        if (documentId && activeUsers[documentId]) {
-
-            delete activeUsers[documentId][socket.id];
-
-            io.to(documentId).emit(
-                "active-users",
-                Object.values(activeUsers[documentId])
-            );
-
-            if (Object.keys(activeUsers[documentId]).length === 0) {
-                delete activeUsers[documentId];
-            }
+        if (documentId) {
+            removeUserFromDocument(socket, documentId);
         }
 
         console.log("User disconnected:", userName);
     });
 
 });
-
 
 // START SERVER
 const PORT = process.env.PORT || 5000;
