@@ -29,3 +29,5 @@ Built using the **MERN stack (MongoDB, Express.js, React.js, and Node.js)**, Syn
 ## Project Overview
 
 SyncDoc provides a shared workspace where users can collaborate on documents, manage access permissions, communicate through real-time chat, and work together more efficiently.
+
+**Project URL:** https://syncdoc.netlify.app/
