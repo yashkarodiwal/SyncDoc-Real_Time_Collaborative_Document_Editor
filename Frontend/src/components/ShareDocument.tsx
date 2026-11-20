@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import axios from "axios";
 
@@ -54,9 +53,11 @@ export default function ShareDocument({ documentId }: Props) {
         <div className="flex w-full min-w-0 flex-col gap-2">
 
             {/* Sharing Controls */}
-            <div className="flex w-full min-w-0 items-center gap-2">
+
+            <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
 
                 {/* Email Input */}
+
                 <input
                     type="email"
                     placeholder="Enter email address"
@@ -70,25 +71,27 @@ export default function ShareDocument({ documentId }: Props) {
                             shareDocument();
                         }
                     }}
-                    className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    className="h-10 w-full min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                 />
 
                 {/* Permission */}
+
                 <select
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
-                    className="h-10 w-24 shrink-0 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 outline-none focus:border-blue-400"
+                    className="h-10 w-full shrink-0 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-400 sm:w-24 sm:px-2"
                 >
                     <option value="viewer">Viewer</option>
                     <option value="editor">Editor</option>
                 </select>
 
                 {/* Share Button */}
+
                 <button
                     type="button"
                     onClick={shareDocument}
                     disabled={loading || !email.trim()}
-                    className="h-10 shrink-0 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-10 w-full shrink-0 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >
                     {loading ? "Sharing..." : "Share"}
                 </button>
@@ -96,13 +99,15 @@ export default function ShareDocument({ documentId }: Props) {
             </div>
 
             {/* Feedback */}
+
             {message && (
                 <p
-                    className={`text-xs ${message.includes("successfully")
+                    className={`break-words text-xs ${message.includes("successfully")
                             ? "text-green-600"
                             : "text-red-500"
                         }`}
                     role="status"
+                    aria-live="polite"
                 >
                     {message}
                 </p>
