@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -91,7 +90,6 @@ export default function Dashboard() {
             navigate(`/document/${res.data._id}`);
         } catch (error) {
             console.error("Failed to create document", error);
-
             setError("Unable to create document. Please try again.");
         } finally {
             setCreating(false);
@@ -130,7 +128,6 @@ export default function Dashboard() {
                 { headers }
             );
 
-            // Update the Dashboard without refreshing
             setDocuments((previousDocuments) =>
                 previousDocuments.map((doc) =>
                     doc._id === selectedDocument._id
@@ -178,25 +175,25 @@ export default function Dashboard() {
 
     return (
         <div
-            className="flex min-h-screen bg-slate-50"
+            className="flex min-h-screen w-full flex-col bg-slate-50 md:flex-row"
             onClick={() => setOpenMenuId(null)}
         >
             <Sidebar />
 
-            <main className="min-w-0 flex-1 px-5 py-7 sm:px-8 lg:px-10">
+            <main className="w-full min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-7 lg:px-10">
 
                 {/* TOP HEADER */}
-                <div className="mb-10 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="mb-2 text-sm font-medium text-blue-600">
+                <div className="mb-8 flex flex-col gap-5 sm:mb-10 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                        <p className="mb-2 text-xs font-semibold tracking-wide text-blue-600 sm:text-sm">
                             WORKSPACE OVERVIEW
                         </p>
 
-                        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+                        <h1 className="break-words text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                             Welcome back, {userName}!
                         </h1>
 
-                        <p className="mt-2 text-sm text-slate-500">
+                        <p className="mt-2 text-sm leading-relaxed text-slate-500">
                             Manage your documents and collaborate with your team.
                         </p>
                     </div>
@@ -206,7 +203,7 @@ export default function Dashboard() {
                             e.stopPropagation();
                             openCreateModal();
                         }}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+                        className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 sm:w-auto"
                     >
                         <span className="text-lg">+</span>
                         Create Document
@@ -214,10 +211,11 @@ export default function Dashboard() {
                 </div>
 
                 {/* STATISTICS */}
-                <div className="mb-9 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="mb-8 grid grid-cols-1 gap-4 sm:mb-9 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                        <div className="flex items-center justify-between">
+                    {/* TOTAL DOCUMENTS */}
+                    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                        <div className="flex items-center justify-between gap-3">
                             <div>
                                 <p className="text-sm font-medium text-slate-500">
                                     Total Documents
@@ -228,7 +226,7 @@ export default function Dashboard() {
                                 </h2>
                             </div>
 
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-2xl">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-2xl sm:h-12 sm:w-12">
                                 📄
                             </div>
                         </div>
@@ -238,8 +236,9 @@ export default function Dashboard() {
                         </p>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                        <div className="flex items-center justify-between">
+                    {/* RECENTLY UPDATED */}
+                    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                        <div className="flex items-center justify-between gap-3">
                             <div>
                                 <p className="text-sm font-medium text-slate-500">
                                     Recently Updated
@@ -255,7 +254,7 @@ export default function Dashboard() {
                                 </h2>
                             </div>
 
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-50 text-2xl">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-2xl sm:h-12 sm:w-12">
                                 ⚡
                             </div>
                         </div>
@@ -265,8 +264,9 @@ export default function Dashboard() {
                         </p>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:col-span-2 lg:col-span-1">
-                        <div className="flex items-center justify-between">
+                    {/* WORKSPACE STATUS */}
+                    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:col-span-2 sm:p-6 xl:col-span-1">
+                        <div className="flex items-center justify-between gap-3">
                             <div>
                                 <p className="text-sm font-medium text-slate-500">
                                     Workspace Status
@@ -277,7 +277,7 @@ export default function Dashboard() {
                                 </h2>
                             </div>
 
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-50 text-2xl">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-2xl sm:h-12 sm:w-12">
                                 ✓
                             </div>
                         </div>
@@ -289,7 +289,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* DOCUMENTS SECTION */}
-                <section>
+                <section className="min-w-0">
                     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h2 className="text-xl font-bold text-slate-900">
@@ -316,6 +316,7 @@ export default function Dashboard() {
                         </div>
                     </div>
 
+                    {/* LOADING */}
                     {loading ? (
                         <div className="rounded-2xl border border-slate-200 bg-white py-16 text-center">
                             <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" />
@@ -325,7 +326,9 @@ export default function Dashboard() {
                             </p>
                         </div>
                     ) : filteredDocuments.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+
+                        /* EMPTY STATE */
+                        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center sm:px-6 sm:py-16">
                             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-3xl">
                                 📁
                             </div>
@@ -353,26 +356,28 @@ export default function Dashboard() {
                             )}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+
+                        /* DOCUMENT CARDS */
+                        <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2 2xl:grid-cols-3">
                             {filteredDocuments.map((doc) => (
                                 <div
                                     key={doc._id}
                                     onClick={() => navigate(`/document/${doc._id}`)}
-                                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-slate-200/60"
+                                    className="group relative min-w-0 cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition duration-200 hover:border-blue-200 hover:shadow-lg sm:p-5 sm:hover:-translate-y-1"
                                 >
                                     {/* DOCUMENT ICON AND MENU */}
-                                    <div className="mb-5 flex items-center justify-between">
-                                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-2xl">
+                                    <div className="mb-5 flex items-center justify-between gap-2">
+                                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-2xl sm:h-12 sm:w-12">
                                             📄
                                         </div>
 
-                                        <div className="flex items-center gap-2">
-                                            <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+                                        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+                                            <span className="whitespace-nowrap rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-medium text-green-700 sm:px-3 sm:text-xs">
                                                 Available
                                             </span>
 
                                             {doc.role !== "viewer" && (
-                                                <div className="relative">
+                                                <div className="relative shrink-0">
                                                     <button
                                                         type="button"
                                                         onClick={(e) => {
@@ -410,11 +415,11 @@ export default function Dashboard() {
                                     </div>
 
                                     {/* DOCUMENT TITLE */}
-                                    <h3 className="truncate text-lg font-semibold text-slate-900 transition group-hover:text-blue-600">
+                                    <h3 className="break-words text-base font-semibold text-slate-900 transition group-hover:text-blue-600 sm:text-lg">
                                         {doc.title || "Untitled Document"}
                                     </h3>
 
-                                    <p className="mt-2 text-sm text-slate-500">
+                                    <p className="mt-2 text-xs text-slate-500 sm:text-sm">
                                         Last updated: {formatDate(doc.updatedAt)}
                                     </p>
 
@@ -425,12 +430,12 @@ export default function Dashboard() {
                                     )}
 
                                     {/* CARD FOOTER */}
-                                    <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
-                                        <span className="text-xs font-medium text-slate-400">
+                                    <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-4 sm:mt-6">
+                                        <span className="text-[11px] font-medium text-slate-400 sm:text-xs">
                                             SyncDoc Document
                                         </span>
 
-                                        <span className="text-sm font-semibold text-blue-600 transition group-hover:translate-x-1">
+                                        <span className="text-xs font-semibold text-blue-600 transition group-hover:translate-x-1 sm:text-sm">
                                             Open document →
                                         </span>
                                     </div>
@@ -440,19 +445,21 @@ export default function Dashboard() {
                     )}
                 </section>
 
-                <footer className="mt-12 border-t border-slate-200 py-6 text-center text-xs text-slate-400">
+                {/* FOOTER */}
+                <footer className="mt-10 border-t border-slate-200 py-6 text-center text-xs text-slate-400 sm:mt-12">
                     © {new Date().getFullYear()} SyncDoc. All rights reserved.
                 </footer>
             </main>
 
             {/* CREATE DOCUMENT MODAL */}
             {showCreateModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-sm">
+                <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 px-4 py-6 backdrop-blur-sm">
                     <form
                         onSubmit={createDocument}
-                        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                        className="my-auto w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
                     >
-                        <div className="mb-5 flex items-start justify-between">
+                        <div className="mb-5 flex items-start justify-between gap-3">
                             <div>
                                 <h2 className="text-xl font-bold text-slate-900">
                                     Create Document
@@ -466,7 +473,7 @@ export default function Dashboard() {
                             <button
                                 type="button"
                                 onClick={() => setShowCreateModal(false)}
-                                className="text-xl text-slate-400 hover:text-slate-700"
+                                className="shrink-0 text-2xl leading-none text-slate-400 hover:text-slate-700"
                             >
                                 ×
                             </button>
@@ -492,11 +499,11 @@ export default function Dashboard() {
                             </p>
                         )}
 
-                        <div className="mt-6 flex justify-end gap-3">
+                        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                             <button
                                 type="button"
                                 onClick={() => setShowCreateModal(false)}
-                                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 sm:w-auto"
                             >
                                 Cancel
                             </button>
@@ -504,7 +511,7 @@ export default function Dashboard() {
                             <button
                                 type="submit"
                                 disabled={creating}
-                                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                                className="w-full rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 sm:w-auto"
                             >
                                 {creating ? "Creating..." : "Create"}
                             </button>
@@ -515,12 +522,13 @@ export default function Dashboard() {
 
             {/* RENAME DOCUMENT MODAL */}
             {showRenameModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-sm">
+                <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 px-4 py-6 backdrop-blur-sm">
                     <form
                         onSubmit={renameDocument}
-                        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                        className="my-auto w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
                     >
-                        <div className="mb-5 flex items-start justify-between">
+                        <div className="mb-5 flex items-start justify-between gap-3">
                             <div>
                                 <h2 className="text-xl font-bold text-slate-900">
                                     Rename Document
@@ -534,7 +542,7 @@ export default function Dashboard() {
                             <button
                                 type="button"
                                 onClick={() => setShowRenameModal(false)}
-                                className="text-xl text-slate-400 hover:text-slate-700"
+                                className="shrink-0 text-2xl leading-none text-slate-400 hover:text-slate-700"
                             >
                                 ×
                             </button>
@@ -560,11 +568,11 @@ export default function Dashboard() {
                             </p>
                         )}
 
-                        <div className="mt-6 flex justify-end gap-3">
+                        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                             <button
                                 type="button"
                                 onClick={() => setShowRenameModal(false)}
-                                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 sm:w-auto"
                             >
                                 Cancel
                             </button>
@@ -572,7 +580,7 @@ export default function Dashboard() {
                             <button
                                 type="submit"
                                 disabled={renaming}
-                                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                                className="w-full rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 sm:w-auto"
                             >
                                 {renaming ? "Saving..." : "Save Changes"}
                             </button>
