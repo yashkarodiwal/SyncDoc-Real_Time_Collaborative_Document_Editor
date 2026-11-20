@@ -447,21 +447,33 @@ export default function Editor({ documentId, onContentChange }: Props) {
                     Collaborators
                 </span>
 
-                {users.length > 0 ? (
-                    users.map((activeUser, index) => (
-                        <span
-                            key={`${activeUser}-${index}`}
-                            className="inline-flex max-w-full items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700"
-                        >
-                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold">
-                                {activeUser.charAt(0).toUpperCase()}
-                            </span>
+                {users.filter(
+                    (activeUser): activeUser is string =>
+                        typeof activeUser === "string" && activeUser.trim().length > 0
+                ).length > 0 ? (
+                    users
+                        .filter(
+                            (activeUser): activeUser is string =>
+                                typeof activeUser === "string" && activeUser.trim().length > 0
+                        )
+                        .map((activeUser, index) => {
+                            const displayName = activeUser.trim();
 
-                            <span className="truncate">
-                                {activeUser}
-                            </span>
-                        </span>
-                    ))
+                            return (
+                                <span
+                                    key={`${displayName}-${index}`}
+                                    className="inline-flex max-w-full items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700"
+                                >
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold">
+                                        {displayName.charAt(0).toUpperCase()}
+                                    </span>
+
+                                    <span className="truncate">
+                                        {displayName}
+                                    </span>
+                                </span>
+                            );
+                        })
                 ) : (
                     <span className="text-xs text-slate-400">
                         No other active collaborators
