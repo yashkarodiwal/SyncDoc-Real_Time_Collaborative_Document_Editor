@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from "react";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
@@ -10,6 +11,13 @@ interface Props {
 }
 
 type Role = "owner" | "editor" | "viewer";
+
+interface JoinResponse {
+    success: boolean;
+    role?: Role;
+    message?: string;
+    activeUsers?: string[];
+}
 
 export default function Editor({ documentId, onContentChange }: Props) {
     const editorRef = useRef<HTMLDivElement | null>(null);
@@ -32,12 +40,25 @@ export default function Editor({ documentId, onContentChange }: Props) {
         onContentChangeRef.current = onContentChange;
     }, [onContentChange]);
 
+    // Update editor permissions
     const updateRole = (newRole: Role) => {
         roleRef.current = newRole;
 
         quillRef.current?.enable(
             newRole === "owner" || newRole === "editor"
         );
+    };
+
+    // Filter invalid collaborator names
+    const getValidUsers = (activeUsers: unknown): string[] => {
+        if (!Array.isArray(activeUsers)) {
+            return [];
+        }
+
+        return activeUsers.filter(
+            (user): user is string =>
+                typeof user === "string" && user.trim().length > 0
+        ).map((user) => user.trim());
     };
 
     // 1. INITIALIZE QUILL
@@ -47,6 +68,7 @@ export default function Editor({ documentId, onContentChange }: Props) {
 
         if (!editorElement || quillRef.current) return;
 
+        // Remove any previously generated toolbar
         while (
             editorElement.previousElementSibling?.classList.contains("ql-toolbar")
         ) {
@@ -112,7 +134,9 @@ export default function Editor({ documentId, onContentChange }: Props) {
                 previousElement.classList.contains("ql-toolbar")
             ) {
                 const toolbar = previousElement;
+
                 previousElement = previousElement.previousElementSibling;
+
                 toolbar.remove();
             }
 
@@ -128,26 +152,29 @@ export default function Editor({ documentId, onContentChange }: Props) {
     useEffect(() => {
         const token = localStorage.getItem("token");
 
+        joinedRef.current = false;
+        setUsers([]);
+
         if (!token) {
             console.error("JWT token missing");
             setSaveStatus("Authentication failed");
             return;
         }
 
+        // Set JWT for Socket.IO authentication
         socket.auth = { token };
-        joinedRef.current = false;
 
+        // JOIN DOCUMENT
         const joinDocument = () => {
+            console.log("Joining document room:", documentId);
+
             socket.emit(
                 "join-document",
                 { documentId },
-                (response: {
-                    success: boolean;
-                    role?: Role;
-                    message?: string;
-                }) => {
+                (response: JoinResponse) => {
                     if (!response?.success) {
                         joinedRef.current = false;
+                        setUsers([]);
 
                         console.error(
                             "Failed to join document:",
@@ -163,16 +190,30 @@ export default function Editor({ documentId, onContentChange }: Props) {
                         updateRole(response.role);
                     }
 
-                    console.log(
-                        "Joined document:",
-                        documentId,
-                        "Role:",
-                        response.role
-                    );
+                    // Get active users from server acknowledgement
+                    setUsers(getValidUsers(response.activeUsers));
+
+                    console.log("Successfully joined document:", documentId);
+                    console.log("User role:", response.role);
+                    console.log("Active users:", response.activeUsers);
                 }
             );
         };
 
+        // SOCKET CONNECTED
+        const handleConnect = () => {
+            console.log("Socket connected:", socket.id);
+            joinDocument();
+        };
+
+        // SOCKET CONNECTION ERROR
+        const handleConnectError = (error: Error) => {
+            console.error("Socket connection error:", error.message);
+            joinedRef.current = false;
+            setUsers([]);
+        };
+
+        // RECEIVE DOCUMENT CHANGES
         const handleReceiveChanges = (snapshot: any) => {
             const quill = quillRef.current;
 
@@ -188,22 +229,30 @@ export default function Editor({ documentId, onContentChange }: Props) {
             onContentChangeRef.current?.(quill.root.innerHTML);
         };
 
-        const handleActiveUsers = (activeUsers: string[]) => {
-            setUsers(activeUsers);
+        // RECEIVE ACTIVE USERS
+        const handleActiveUsers = (activeUsers: unknown) => {
+            console.log("Active users updated:", activeUsers);
+
+            setUsers(getValidUsers(activeUsers));
         };
 
+        // PERMISSION DENIED
         const handlePermissionDenied = (data: { message: string }) => {
             console.error("Permission denied:", data.message);
 
             updateRole("viewer");
+            dirtyRef.current = false;
             setSaveStatus("Permission denied");
         };
 
-        socket.on("connect", joinDocument);
+        // Register listeners
+        socket.on("connect", handleConnect);
+        socket.on("connect_error", handleConnectError);
         socket.on("receive-changes", handleReceiveChanges);
         socket.on("active-users", handleActiveUsers);
         socket.on("permission-denied", handlePermissionDenied);
 
+        // Connect or join existing connection
         if (socket.connected) {
             joinDocument();
         } else {
@@ -211,16 +260,19 @@ export default function Editor({ documentId, onContentChange }: Props) {
         }
 
         return () => {
-            socket.off("connect", joinDocument);
+            socket.off("connect", handleConnect);
+            socket.off("connect_error", handleConnectError);
             socket.off("receive-changes", handleReceiveChanges);
             socket.off("active-users", handleActiveUsers);
             socket.off("permission-denied", handlePermissionDenied);
 
+            // Leave the document room
             if (joinedRef.current && socket.connected) {
                 socket.emit("leave-document", { documentId });
             }
 
             joinedRef.current = false;
+            setUsers([]);
         };
     }, [documentId]);
 
@@ -272,6 +324,7 @@ export default function Editor({ documentId, onContentChange }: Props) {
                 loadedRef.current = true;
                 dirtyRef.current = false;
 
+                // Apply remote content received before document loading finished
                 const pendingSnapshot =
                     pendingRemoteContentRef.current;
 
@@ -416,7 +469,7 @@ export default function Editor({ documentId, onContentChange }: Props) {
     return (
         <div className="syncdoc-editor-shell flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
 
-            {/* Editor Header */}
+            {/* EDITOR HEADER */}
 
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-3 sm:px-4">
                 <div className="min-w-0">
@@ -440,40 +493,28 @@ export default function Editor({ documentId, onContentChange }: Props) {
                 </div>
             </div>
 
-            {/* Active Collaborators */}
+            {/* ACTIVE COLLABORATORS */}
 
             <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-3 sm:px-4">
                 <span className="mr-1 text-xs font-medium text-slate-500">
                     Collaborators
                 </span>
 
-                {users.filter(
-                    (activeUser): activeUser is string =>
-                        typeof activeUser === "string" && activeUser.trim().length > 0
-                ).length > 0 ? (
-                    users
-                        .filter(
-                            (activeUser): activeUser is string =>
-                                typeof activeUser === "string" && activeUser.trim().length > 0
-                        )
-                        .map((activeUser, index) => {
-                            const displayName = activeUser.trim();
+                {getValidUsers(users).length > 0 ? (
+                    getValidUsers(users).map((activeUser, index) => (
+                        <span
+                            key={`${activeUser}-${index}`}
+                            className="inline-flex max-w-full items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700"
+                        >
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold">
+                                {activeUser.charAt(0).toUpperCase()}
+                            </span>
 
-                            return (
-                                <span
-                                    key={`${displayName}-${index}`}
-                                    className="inline-flex max-w-full items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700"
-                                >
-                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold">
-                                        {displayName.charAt(0).toUpperCase()}
-                                    </span>
-
-                                    <span className="truncate">
-                                        {displayName}
-                                    </span>
-                                </span>
-                            );
-                        })
+                            <span className="truncate">
+                                {activeUser}
+                            </span>
+                        </span>
+                    ))
                 ) : (
                     <span className="text-xs text-slate-400">
                         No other active collaborators
@@ -481,7 +522,7 @@ export default function Editor({ documentId, onContentChange }: Props) {
                 )}
             </div>
 
-            {/* Quill Editor */}
+            {/* QUILL EDITOR */}
 
             <div
                 ref={editorRef}
