@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { socket } from "../services/socket";
@@ -29,7 +28,7 @@ export default function Chat({ documentId }: Props) {
     const token = localStorage.getItem("token");
     const user = localStorage.getItem("name") || "User";
 
-    // Scroll to the latest message
+    // Scroll to latest message
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({
             behavior: "smooth"
@@ -44,6 +43,9 @@ export default function Chat({ documentId }: Props) {
     useEffect(() => {
         let cancelled = false;
 
+        // Store messages received while history is loading.
+        let incomingMessages: Message[] = [];
+
         const loadMessages = async () => {
             try {
                 const res = await axios.get(
@@ -56,7 +58,25 @@ export default function Chat({ documentId }: Props) {
                 );
 
                 if (!cancelled) {
-                    setMessages(res.data);
+                    setMessages((currentMessages) => {
+                        const combined = [
+                            ...res.data,
+                            ...incomingMessages,
+                            ...currentMessages
+                        ];
+
+                        // Avoid duplicates when messages have IDs.
+                        const seen = new Set<string>();
+
+                        return combined.filter((msg) => {
+                            if (!msg._id) return true;
+
+                            if (seen.has(msg._id)) return false;
+
+                            seen.add(msg._id);
+                            return true;
+                        });
+                    });
                 }
             } catch (error) {
                 console.error("Failed to load chat history", error);
@@ -66,23 +86,31 @@ export default function Chat({ documentId }: Props) {
         setMessages([]);
         loadMessages();
 
-        return () => {
-            cancelled = true;
-        };
-    }, [documentId, token]);
-
-    // Receive real-time messages
-    useEffect(() => {
+        // Receive messages for this document.
         const handleReceiveMessage = (data: Message) => {
-            setMessages((prev) => [...prev, data]);
+            incomingMessages.push(data);
+
+            if (!cancelled) {
+                setMessages((prev) => {
+                    if (
+                        data._id &&
+                        prev.some((msg) => msg._id === data._id)
+                    ) {
+                        return prev;
+                    }
+
+                    return [...prev, data];
+                });
+            }
         };
 
         socket.on("receive-message", handleReceiveMessage);
 
         return () => {
+            cancelled = true;
             socket.off("receive-message", handleReceiveMessage);
         };
-    }, []);
+    }, [documentId, token]);
 
     // Send message
     const sendMessage = async () => {
@@ -148,10 +176,11 @@ export default function Chat({ documentId }: Props) {
         <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
 
             {/* Messages Area */}
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto p-4">
+
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto p-3 sm:p-4">
 
                 {messages.length === 0 ? (
-                    <div className="flex flex-1 flex-col items-center justify-center text-center">
+                    <div className="flex flex-1 flex-col items-center justify-center px-3 text-center">
 
                         <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-2xl">
                             💬
@@ -174,34 +203,36 @@ export default function Chat({ documentId }: Props) {
                         return (
                             <div
                                 key={msg._id || index}
-                                className={`flex min-w-0 flex-col ${isOwnMessage
+                                className={`flex w-full min-w-0 flex-col ${isOwnMessage
                                         ? "items-end"
                                         : "items-start"
                                     }`}
                             >
 
                                 {/* Sender */}
-                                <div className="mb-1 flex items-center gap-2">
+
+                                <div className="mb-1 flex min-w-0 max-w-full items-center gap-2">
                                     {!isOwnMessage && (
-                                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
+                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
                                             {senderName.charAt(0).toUpperCase()}
                                         </span>
                                     )}
 
-                                    <span className="text-xs font-semibold text-slate-600">
+                                    <span className="max-w-full truncate text-xs font-semibold text-slate-600">
                                         {isOwnMessage ? "You" : senderName}
                                     </span>
                                 </div>
 
                                 {/* Message Bubble */}
+
                                 <div
-                                    className={`max-w-[95%] min-w-0 break-words rounded-2xl px-3 py-2 text-sm leading-relaxed ${isOwnMessage
+                                    className={`w-fit max-w-[95%] min-w-0 overflow-hidden rounded-2xl px-3 py-2 text-sm leading-relaxed ${isOwnMessage
                                             ? "rounded-tr-sm bg-blue-600 text-white"
                                             : "rounded-tl-sm bg-slate-100 text-slate-700"
                                         }`}
                                 >
                                     {msg.message && (
-                                        <p className="whitespace-pre-wrap break-words">
+                                        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                                             {msg.message}
                                         </p>
                                     )}
@@ -223,13 +254,12 @@ export default function Chat({ documentId }: Props) {
 
                                 {msg.timestamp && (
                                     <span className="mt-1 text-[10px] text-slate-400">
-                                        {new Date(msg.timestamp).toLocaleTimeString(
-                                            "en-IN",
-                                            {
-                                                hour: "2-digit",
-                                                minute: "2-digit"
-                                            }
-                                        )}
+                                        {new Date(
+                                            msg.timestamp
+                                        ).toLocaleTimeString("en-IN", {
+                                            hour: "2-digit",
+                                            minute: "2-digit"
+                                        })}
                                     </span>
                                 )}
 
@@ -243,14 +273,16 @@ export default function Chat({ documentId }: Props) {
             </div>
 
             {/* Selected File */}
+
             {file && (
-                <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-100 bg-blue-50 px-3 py-2">
+                <div className="flex min-w-0 shrink-0 items-center justify-between gap-2 border-t border-slate-100 bg-blue-50 px-3 py-2">
 
                     <span className="min-w-0 truncate text-xs text-blue-700">
                         📎 {file.name}
                     </span>
 
                     <button
+                        type="button"
                         onClick={() => {
                             setFile(null);
 
@@ -267,19 +299,22 @@ export default function Chat({ documentId }: Props) {
             )}
 
             {/* Message Composer */}
-            <div className="flex w-full min-w-0 shrink-0 items-center gap-2 border-t border-slate-200 bg-white p-3">
+
+            <div className="grid w-full min-w-0 shrink-0 grid-cols-[minmax(0,1fr)_40px_auto] items-center gap-2 border-t border-slate-200 bg-white p-2 sm:p-3">
 
                 {/* Message Input */}
+
                 <input
                     type="text"
                     placeholder="Type a message..."
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                    className="h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 sm:px-3"
                 />
 
                 {/* Attachment Button */}
+
                 <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -301,11 +336,12 @@ export default function Chat({ documentId }: Props) {
                 />
 
                 {/* Send Button */}
+
                 <button
                     type="button"
                     onClick={sendMessage}
                     disabled={sending || (!input.trim() && !file)}
-                    className="flex h-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm"
                 >
                     {sending ? "..." : "Send"}
                 </button>
