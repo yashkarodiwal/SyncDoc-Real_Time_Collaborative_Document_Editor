@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
@@ -24,12 +23,10 @@ export default function Editor({ documentId, onContentChange }: Props) {
     const roleRef = useRef<Role>("viewer");
     const onContentChangeRef = useRef(onContentChange);
 
-    // Keep only the latest remote snapshot received during loading.
     const pendingRemoteContentRef = useRef<any>(null);
 
     const [users, setUsers] = useState<string[]>([]);
     const [saveStatus, setSaveStatus] = useState("Loading...");
-
 
     useEffect(() => {
         onContentChangeRef.current = onContentChange;
@@ -43,17 +40,13 @@ export default function Editor({ documentId, onContentChange }: Props) {
         );
     };
 
-    // --------------------------------------------------
     // 1. INITIALIZE QUILL
-    // --------------------------------------------------
-
 
     useEffect(() => {
         const editorElement = editorRef.current;
 
         if (!editorElement || quillRef.current) return;
 
-        // Remove any leftover Quill toolbars before initialization.
         while (
             editorElement.previousElementSibling?.classList.contains("ql-toolbar")
         ) {
@@ -112,7 +105,6 @@ export default function Editor({ documentId, onContentChange }: Props) {
         return () => {
             quill.off("text-change", handleTextChange);
 
-            // Remove all Quill toolbars created for this editor.
             let previousElement = editorElement.previousElementSibling;
 
             while (
@@ -131,9 +123,7 @@ export default function Editor({ documentId, onContentChange }: Props) {
         };
     }, [documentId]);
 
-    // --------------------------------------------------
     // 2. SOCKET CONNECTION AND DOCUMENT ROOM
-    // --------------------------------------------------
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -158,10 +148,12 @@ export default function Editor({ documentId, onContentChange }: Props) {
                 }) => {
                     if (!response?.success) {
                         joinedRef.current = false;
+
                         console.error(
                             "Failed to join document:",
                             response?.message
                         );
+
                         return;
                     }
 
@@ -181,21 +173,16 @@ export default function Editor({ documentId, onContentChange }: Props) {
             );
         };
 
-        // Receive a complete document snapshot.
         const handleReceiveChanges = (snapshot: any) => {
             const quill = quillRef.current;
 
             if (!quill) return;
 
-            // If initial document loading is not complete,
-            // keep the latest received snapshot.
             if (!loadedRef.current) {
                 pendingRemoteContentRef.current = snapshot;
                 return;
             }
 
-            // Replace the entire document instead of applying
-            // an incremental delta.
             quill.setContents(snapshot, "api");
 
             onContentChangeRef.current?.(quill.root.innerHTML);
@@ -237,9 +224,7 @@ export default function Editor({ documentId, onContentChange }: Props) {
         };
     }, [documentId]);
 
-    // --------------------------------------------------
     // 3. LOAD DOCUMENT
-    // --------------------------------------------------
 
     useEffect(() => {
         let cancelled = false;
@@ -287,7 +272,6 @@ export default function Editor({ documentId, onContentChange }: Props) {
                 loadedRef.current = true;
                 dirtyRef.current = false;
 
-                // Apply the latest snapshot received while loading.
                 const pendingSnapshot =
                     pendingRemoteContentRef.current;
 
@@ -325,9 +309,7 @@ export default function Editor({ documentId, onContentChange }: Props) {
         };
     }, [documentId]);
 
-    // --------------------------------------------------
     // 4. AUTO-SAVE TO MONGODB
-    // --------------------------------------------------
 
     useEffect(() => {
         const saveDocument = async () => {
@@ -368,8 +350,6 @@ export default function Editor({ documentId, onContentChange }: Props) {
                     }
                 );
 
-                // Only mark as saved if no new typing occurred
-                // while this request was in progress.
                 if (quill.root.innerHTML === contentToSave) {
                     dirtyRef.current = false;
                     setSaveStatus("Saved");
@@ -409,9 +389,7 @@ export default function Editor({ documentId, onContentChange }: Props) {
         return () => clearInterval(interval);
     }, [documentId]);
 
-    // --------------------------------------------------
     // 5. SAVE STATUS STYLING
-    // --------------------------------------------------
 
     const statusColor =
         saveStatus === "Saved"
@@ -433,17 +411,15 @@ export default function Editor({ documentId, onContentChange }: Props) {
                 ? "text-red-600"
                 : "text-amber-700";
 
-    // --------------------------------------------------
     // 6. EDITOR UI
-    // --------------------------------------------------
 
     return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
+        <div className="syncdoc-editor-shell flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
 
             {/* Editor Header */}
 
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-                <div>
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-3 sm:px-4">
+                <div className="min-w-0">
                     <h3 className="text-sm font-semibold text-slate-800">
                         Writing Area
                     </h3>
@@ -466,7 +442,7 @@ export default function Editor({ documentId, onContentChange }: Props) {
 
             {/* Active Collaborators */}
 
-            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-3 sm:px-4">
                 <span className="mr-1 text-xs font-medium text-slate-500">
                     Collaborators
                 </span>
@@ -475,13 +451,15 @@ export default function Editor({ documentId, onContentChange }: Props) {
                     users.map((activeUser, index) => (
                         <span
                             key={`${activeUser}-${index}`}
-                            className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700"
+                            className="inline-flex max-w-full items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700"
                         >
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold">
                                 {activeUser.charAt(0).toUpperCase()}
                             </span>
 
-                            {activeUser}
+                            <span className="truncate">
+                                {activeUser}
+                            </span>
                         </span>
                     ))
                 ) : (
